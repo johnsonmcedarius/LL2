@@ -76,22 +76,22 @@ local function pickItem(crateType, guaranteeLegendary, luckMultiplier)
 		if luckMultiplier and luckMultiplier > 1 then
 			local modifiedItems = {}
 			local modifiedTotalWeight = 0
-			
+
 			local pool = LootTable[crateType]
 			for _, item in ipairs(pool) do
 				local weight = Config.RARITY_WEIGHTS[item.Rarity] or 1
-				
+
 				-- Buff Legendary and Mythic, Nerf Common
 				if item.Rarity == "Legendary" or item.Rarity == "Mythic" then
 					weight = weight * luckMultiplier
 				elseif item.Rarity == "Common" then
 					weight = math.max(1, weight / luckMultiplier)
 				end
-				
+
 				modifiedTotalWeight += weight
 				table.insert(modifiedItems, { item = item, threshold = modifiedTotalWeight })
 			end
-			
+
 			targetPool = { items = modifiedItems, totalWeight = modifiedTotalWeight }
 		else
 			targetPool = poolData.Normal
@@ -166,6 +166,58 @@ local function processSpin(player, crateType)
 		IsDuplicate = isDuplicate, 
 		Compensation = compensation 
 	}
+end
+
+-- ── Service Methods ──
+local GachaService = {
+	GetById = function(id)
+		for _, crate in ipairs(Config.CRATES) do
+			if crate.id == id then
+				return crate
+			end
+		end
+		return nil
+	end,
+
+	GetAll = function()
+		local list = {}
+		for _, crate in ipairs(Config.CRATES) do
+			table.insert(list, crate)
+		end
+		table.sort(list, function(a, b) return (a.order or 99) < (b.order or 99) end)
+		return list
+	end,
+
+	IsValid = function(id)
+		for _, crate in ipairs(Config.CRATES) do
+			if crate.id == id then
+				return true
+			end
+		end
+		return false
+	end,
+}
+
+function GachaService.BuyCoinCrate(player)
+	local cost = Config.COIN_CRATE_COST or 500
+	if DataManager.SubtractCoins(player, cost) then
+		GachaService.AddCrate(player, "CoinDesignerCrate", 1)
+		return true
+	end
+	return false
+end
+
+function GachaService.AddCrate(player, crateType, amount)
+	local data = DataManager.GetData(player)
+	if data then
+		if not data.Inventory then data.Inventory = {} end
+		data.Inventory[crateType] = (data.Inventory[crateType] or 0) + (amount or 1)
+
+		-- Sync right away when giving a crate externally (like your daily login reward pass)
+		if DataManager.UpdateInventoryReplica then
+			DataManager.UpdateInventoryReplica(player)
+		end
+	end
 end
 
 -- ── Listeners ──
@@ -244,15 +296,13 @@ EconomyEvent.OnServerEvent:Connect(function(player, actionType, arg1, arg2)
 			end
 
 			DataManager.SubtractCoins(player, cost)
-			-- GachaService.AddCrate(player, crate.id, 1) -- Removed intermediate inventory step
-			-- EconomyEvent:FireClient(player, "TriggerUnboxing", crate.id) -- Removed old cinematic trigger
-			
+
 			-- Immediately process spin and fire result to client
 			local result = processSpin(player, crate.id)
 			if result then
 				EconomyEvent:FireClient(player, "CrateResult", crate.id, result)
 			end
-			
+
 			print(string.format("[GACHA] %s rolled %s for %d coins", player.Name, crate.id, cost))
 
 		elseif crate.currency == "Robux" then
@@ -268,57 +318,6 @@ Players.PlayerRemoving:Connect(function(player)
 	RateLimits[player.UserId] = nil
 end)
 
--- ── Service Methods ──
-local GachaService = {
-	GetById = function(id)
-		for _, crate in ipairs(Config.CRATES) do
-			if crate.id == id then
-				return crate
-			end
-		end
-		return nil
-	end,
-
-	GetAll = function()
-		local list = {}
-		for _, crate in ipairs(Config.CRATES) do
-			table.insert(list, crate)
-		end
-		table.sort(list, function(a, b) return (a.order or 99) < (b.order or 99) end)
-		return list
-	end,
-
-	IsValid = function(id)
-		for _, crate in ipairs(Config.CRATES) do
-			if crate.id == id then
-				return true
-			end
-		end
-		return false
-	end,
-}
-
-function GachaService.BuyCoinCrate(player)
-	local cost = Config.COIN_CRATE_COST or 500
-	if DataManager.SubtractCoins(player, cost) then
-		GachaService.AddCrate(player, "CoinDesignerCrate", 1)
-		return true
-	end
-	return false
-end
-
-function GachaService.AddCrate(player, crateType, amount)
-	local data = DataManager.GetData(player)
-	if data then
-		if not data.Inventory then data.Inventory = {} end
-		data.Inventory[crateType] = (data.Inventory[crateType] or 0) + (amount or 1)
-
-		-- Sync right away when giving a crate externally (like your daily login reward pass)
-		if DataManager.UpdateInventoryReplica then
-			DataManager.UpdateInventoryReplica(player)
-		end
-	end
-end
-
+-- ── Register and Return ──
 ServiceRegistry.Register("GachaService", GachaService)
 return GachaService
