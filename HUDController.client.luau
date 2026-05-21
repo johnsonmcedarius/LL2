@@ -181,33 +181,34 @@ end
 local function GetRequiredXP(level) return math.floor(Config.BASE_XP * (level ^ Config.XP_MULTIPLIER)) end
 
 local function animateXPBar(currentLevel, currentXP, xpEarned)
-    local xpFill = getFrame("XPBarFill")
-    local xpLabel = getFrame("XPLabel")
-    local levelUpBanner = getFrame("LevelUpBanner")
-    if not xpFill then return end
-    local required = GetRequiredXP(currentLevel)
-    local startPct = math.clamp(currentXP / required, 0, 1)
-    local endXP, newLevel, didLevelUp = currentXP + xpEarned, currentLevel, false
-    while endXP >= GetRequiredXP(newLevel) do endXP -= GetRequiredXP(newLevel) newLevel += 1 didLevelUp = true end
-    local endPct = math.clamp(endXP / GetRequiredXP(newLevel), 0, 1)
-    if xpLabel then xpLabel.Text = "Level " .. currentLevel end
-    xpFill.Size = UDim2.new(startPct, 0, 1, 0)
-    task.wait(0.5)
-    if didLevelUp then
-        TweenService:Create(xpFill, TweenInfo.new(0.8, Enum.EasingStyle.Quad), {Size = UDim2.new(1, 0, 1, 0)}):Play()
-        task.wait(0.9)
-        TweenService:Create(xpFill, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(255, 220, 0)}):Play()
-        if levelUpBanner then
-            levelUpBanner.Visible = true
-            local lvlLabel = levelUpBanner:FindFirstChildOfClass("TextLabel")
-            if lvlLabel then lvlLabel.Text = "LEVEL UP! " .. newLevel end
-            task.delay(2, function() levelUpBanner.Visible = false end)
-        end
-        task.wait(0.3)
-        xpFill.Size = UDim2.new(0, 0, 1, 0)
-        if xpLabel then xpLabel.Text = "Level " .. newLevel end
-    end
-    TweenService:Create(xpFill, TweenInfo.new(1.2, Enum.EasingStyle.Quad), {Size = UDim2.new(endPct, 0, 1, 0)}):Play()
+	local xpFill = getFrame("XPBarFill")
+	local xpLabel = getFrame("XPLabel")
+	local levelUpBanner = getFrame("LevelUpBanner")
+	if not xpFill then return end
+	local required = GetRequiredXP(currentLevel)
+
+	local startPct = math.clamp(currentXP / required, 0, 1)
+	local endXP, newLevel, didLevelUp = currentXP + xpEarned, currentLevel, false
+	while endXP >= GetRequiredXP(newLevel) do endXP -= GetRequiredXP(newLevel) newLevel += 1 didLevelUp = true end
+	local endPct = math.clamp(endXP / GetRequiredXP(newLevel), 0, 1)
+	if xpLabel then xpLabel.Text = "Level " .. currentLevel end
+	xpFill.Size = UDim2.new(startPct, 0, 1, 0)
+	task.wait(0.5)
+	if didLevelUp then
+		TweenService:Create(xpFill, TweenInfo.new(0.8, Enum.EasingStyle.Quad), {Size = UDim2.new(1, 0, 1, 0)}):Play()
+		task.wait(0.9)
+		TweenService:Create(xpFill, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(255, 220, 0)}):Play()
+		if levelUpBanner then
+			levelUpBanner.Visible = true
+			local lvlLabel = levelUpBanner:FindFirstChildOfClass("TextLabel")
+			if lvlLabel then lvlLabel.Text = "LEVEL UP!\n" .. newLevel end
+			task.delay(2, function() levelUpBanner.Visible = false end)
+		end
+		task.wait(0.3)
+		xpFill.Size = UDim2.new(0, 0, 1, 0)
+		if xpLabel then xpLabel.Text = "Level " .. newLevel end
+	end
+	TweenService:Create(xpFill, TweenInfo.new(1.2, Enum.EasingStyle.Quad), {Size = UDim2.new(endPct, 0, 1, 0)}):Play()
 end
 
 local function showNextReward()
@@ -224,11 +225,19 @@ end
 
 -- ── Currency Display ─────────────────────────────────────────────────────────
 local function updateCoinDisplay(newCoins, animate)
-	if currentCoins == newCoins then return end
-	currentCoins = newCoins
 	local coinAmount = getFrame("CoinAmount")
 	local coinDisplay = getFrame("CurrencyDisplay")
-	if coinAmount then coinAmount.Text = formatNumber(newCoins) end
+
+	if coinAmount then
+		if currentCoins == newCoins and coinAmount.Text == formatNumber(newCoins) then return end
+		currentCoins = newCoins
+		coinAmount.Text = formatNumber(newCoins)
+	else
+		-- If UI isn't ready, flag cache as dirty so initialization sync can overwrite it
+		currentCoins = -1
+		return
+	end
+
 	if animate and not isCoinAnimating and coinDisplay then
 		isCoinAnimating = true
 		local originalSize = coinDisplay.Size
@@ -309,7 +318,8 @@ local function openMenu(menuName)
 	isMenuAnimating = true
 	local targetPos = REST_POSITIONS[menuName] or frame.Position
 	frame.Position = UDim2.new(targetPos.X.Scale, targetPos.X.Offset, targetPos.Y.Scale, targetPos.Y.Offset + SLIDE_OFFSET)
-	frame.Visible = true setCanvasAlpha(frame, 0) gui.Enabled = true
+	frame.Visible = true setCanvasAlpha(frame, 0) 
+	gui.Enabled = true
 	for _, m in pairs(Menus) do
 		local mg = PlayerGui:FindFirstChild(m.Gui)
 		local mf = mg and mg:FindFirstChild(m.Frame, true)
@@ -334,7 +344,8 @@ local function transitionToMatch()
 	ghud.Enabled = true
 	local sf, ah, um, st = getFrame("ScoreboardFrame"), getFrame("ActionHotbar"), getFrame("UltimateModule"), getFrame("StatusTracker")
 	if sf then sf.Position = HUD_OFF.ScoreboardFrame end
-	if ah then ah.Position = HUD_OFF.ActionHotbar end
+	if ah then 
+		ah.Position = HUD_OFF.ActionHotbar end
 	if um then um.Position = HUD_OFF.UltimateModule end
 	if st then st.Position = HUD_OFF.StatusTracker end
 	local bn, cd, dlb = getFrame("BottomNav"), getFrame("CurrencyDisplay"), getFrame("DailyLookbookButton")
@@ -400,51 +411,45 @@ end)
 local function startSnappyRngSpin(winningItemName, rarity)
 	local gachaGui = PlayerGui:FindFirstChild("GachaGui")
 	if not gachaGui then return end
-	
+
 	local rollContainer = gachaGui:FindFirstChild("RollContainer", true)
 	local itemScroller = rollContainer and rollContainer:FindFirstChild("ItemScroller", true)
 	if not itemScroller then return end
-	
-	-- Populate 4 generic items + winning item at the end of the fake chain
+
 	local cards = itemScroller:GetChildren()
 	local cardTemplates = {}
 	for _, child in ipairs(cards) do
 		if child:IsA("ImageLabel") then table.insert(cardTemplates, child) end
 	end
-	
+
 	if #cardTemplates < 4 then return end
-	
+
 	gachaGui.Enabled = true
 	rollContainer.Visible = true
 	rollContainer.Size = UDim2.fromScale(0.1, 0.1)
 	TweenService:Create(rollContainer, TweenInfo.new(0.4, Enum.EasingStyle.Back), {Size = UDim2.fromOffset(400, 150)}):Play()
-	
-	-- The winning item will be represented by the "TargetCard" (Card #4 for the final snap)
+
 	local winningCard = cardTemplates[4]
 	winningCard.ItemLabel.Text = winningItemName
 	winningCard.BackgroundColor3 = RARITY_COLORS[rarity] or RARITY_COLORS.Common
-	
-	-- RESET position for spin
+
 	itemScroller.Position = UDim2.new(0.5, 0, 0, 0)
-	
-	-- SPIN: Tween the container position down
+
 	local spinInfo = TweenInfo.new(2.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 	local spinTween = TweenService:Create(itemScroller, spinInfo, {
-		Position = UDim2.new(0.5, 0, 0, -320) -- Slide down to align Card #4 to indicator
+		Position = UDim2.new(0.5, 0, 0, -320)
 	})
-	
+
 	spinTween:Play()
-	SoundService.PlayLocal("CrateSpin") -- Assuming this asset exists or is a generic click
-	
+	SoundService.PlayLocal("CrateSpin")
+
 	spinTween.Completed:Connect(function()
-		-- 3. THE POP: Elastic scale bump
-		SoundService.PlayLocal("FabricDunk") -- Reward sound
+		SoundService.PlayLocal("FabricDunk")
 		local pop = TweenService:Create(winningCard, TweenInfo.new(0.6, Enum.EasingStyle.Elastic), {
 			Size = UDim2.new(0, 130, 0, 130)
 		})
 		pop:Play()
-		
-		-- Flash rarity color
+
 		local flash = gachaGui:FindFirstChild("FlashOverlay", true)
 		if flash then
 			flash.BackgroundColor3 = RARITY_COLORS[rarity] or Color3.new(1,1,1)
@@ -453,13 +458,12 @@ local function startSnappyRngSpin(winningItemName, rarity)
 			TweenService:Create(flash, TweenInfo.new(0.4), {BackgroundTransparency = 1}):Play()
 			task.delay(0.4, function() flash.Visible = false end)
 		end
-		
-		-- Cleanup after a delay
+
 		task.delay(2.5, function()
 			TweenService:Create(rollContainer, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.fromScale(0, 0)}):Play()
 			task.wait(0.3)
 			gachaGui.Enabled = false
-			winningCard.Size = UDim2.new(0, 100, 0, 100) -- Reset size
+			winningCard.Size = UDim2.new(0, 100, 0, 100)
 		end)
 	end)
 end
@@ -482,7 +486,8 @@ UpdateDualScore.OnClientEvent:Connect(function(dScore, cScore, target)
 	if dLabel then dLabel.Text = tostring(dScore) if dScore > lastDesignerScore then TweenService:Create(dLabel, TweenInfo.new(0.1), {TextColor3 = Color3.fromRGB(100, 200, 255)}):Play() task.delay(0.2, function() TweenService:Create(dLabel, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play() end) end end
 	if cLabel then cLabel.Text = tostring(cScore) if cScore > lastCriticScore then TweenService:Create(cLabel, TweenInfo.new(0.1), {TextColor3 = Color3.fromRGB(255, 100, 150)}):Play() task.delay(0.2, function() TweenService:Create(cLabel, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(255, 255, 255)}):Play() end) end end
 	if tLabel then tLabel.Text = "/ " .. tostring(target) end
-	if dScore >= target - 1 then playClutchFlash("Designers") elseif cScore >= target - 1 then playClutchFlash("Critics") end
+	if dScore >= target - 1 then playClutchFlash("Designers") 
+	elseif cScore >= target - 1 then playClutchFlash("Critics") end
 	lastDesignerScore, lastCriticScore = dScore, cScore
 end)
 
@@ -553,6 +558,16 @@ end
 
 game:GetService("ProximityPromptService").PromptTriggered:Connect(function(prompt, pWho)
 	if pWho == player then onPromptTriggered(prompt) end
+end)
+
+-- Force an initial coin sync now that LobbyHUD is guaranteed to be fully loaded and active
+task.defer(function()
+	local lobbyHUD = PlayerGui:WaitForChild("LobbyHUD", 5)
+	if lobbyHUD then
+		currentCoins = -1 -- Break the cache to force redraw
+		local actualCoins = player:GetAttribute("Coins") or 0
+		updateCoinDisplay(actualCoins, false)
+	end
 end)
 
 print("[HUD] Master Controller Initialized")
