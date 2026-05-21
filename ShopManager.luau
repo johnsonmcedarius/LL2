@@ -50,14 +50,14 @@ local function applyGamepassPerks(player)
 		end
 	end
 
-	for bKey, bundle in pairs(Registry.Bundles) do
+	for bKey, bundle in pairs(Registry.Bundles or {}) do
 		if bundle.Id ~= 0 then
 			local ok, owns = pcall(function() return MarketplaceService:UserOwnsGamePassAsync(player.UserId, bundle.Id) end)
 			if ok and owns then DataManager.UnlockBundle(player, bKey) end
 		end
 	end
 
-	for iKey, item in pairs(Registry.Items) do
+	for iKey, item in pairs(Registry.Items or {}) do
 		if item.Id ~= 0 then
 			local ok, owns = pcall(function() return MarketplaceService:UserOwnsGamePassAsync(player.UserId, item.Id) end)
 			if ok and owns then DataManager.GiveItem(player, item.Category, item.ItemName) end
@@ -96,7 +96,7 @@ MarketplaceService.ProcessReceipt = function(receiptInfo)
 		end
 	end
 
-	for _, pEntry in pairs(Registry.Products) do
+	for _, pEntry in pairs(Registry.Products or {}) do
 		if pEntry.Id == pId then
 			if pEntry.Reward.Coins then DataManager.AddCoins(player, pEntry.Reward.Coins) end
 			if pEntry.Reward.Crate then
