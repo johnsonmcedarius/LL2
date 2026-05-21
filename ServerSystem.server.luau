@@ -14,8 +14,6 @@ require(ServerScriptService:WaitForChild("GachaService"))
 require(ServerScriptService:WaitForChild("TeamService"))
 require(ServerScriptService:WaitForChild("MapService"))
 require(ServerScriptService:WaitForChild("TimerService"))
--- require(ServerScriptService:WaitForChild("RoundEvents"))
-require(ServerScriptService:WaitForChild("FabricCarrierService"))
 require(ServerScriptService:WaitForChild("ShopManager"))
 require(ServerScriptService:WaitForChild("MatchRegistry"))
 
@@ -26,10 +24,6 @@ require(ServerScriptService:WaitForChild("CollisionService"))
 require(ServerScriptService:WaitForChild("RobloxPlusService"))
 
 -- ── 3. GAMEPLAY & REWARD LOGIC ─────────────────────────────────────────────
--- RewardTracker is REQUIRED for FabricManager to track XP/Coins.
---require(ServerScriptService:WaitForChild("RewardTracker"))
---require(ServerScriptService:WaitForChild("ShowstopperService")) 
---require(ServerScriptService:WaitForChild("FabricManager"))
 require(ServerScriptService:WaitForChild("SkinEffectService"))
 
 print("[SERVER] All services initialized.")
