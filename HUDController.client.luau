@@ -225,15 +225,21 @@ end
 
 -- ── Currency Display ─────────────────────────────────────────────────────────
 local function updateCoinDisplay(newCoins, animate)
-	local coinAmount = getFrame("CoinAmount")
-	local coinDisplay = getFrame("CurrencyDisplay")
+	local lobbyHUD = PlayerGui:FindFirstChild("LobbyHUD")
+	local coinDisplay = lobbyHUD and lobbyHUD:FindFirstChild("CurrencyDisplay")
+	local coinAmount = coinDisplay and coinDisplay:FindFirstChild("CoinAmount")
+
+	-- Fallback structural scan if layout hierarchy scales differently
+	if not coinAmount or not coinDisplay then
+		coinDisplay = getFrame("CurrencyDisplay")
+		coinAmount = getFrame("CoinAmount")
+	end
 
 	if coinAmount then
 		if currentCoins == newCoins and coinAmount.Text == formatNumber(newCoins) then return end
 		currentCoins = newCoins
 		coinAmount.Text = formatNumber(newCoins)
 	else
-		-- If UI isn't ready, flag cache as dirty so initialization sync can overwrite it
 		currentCoins = -1
 		return
 	end
@@ -514,61 +520,56 @@ local function setupReplicaListener()
 	return false
 end
 
-if not setupReplicaListener() then
-	player:GetAttributeChangedSignal("Coins"):Connect(function() updateCoinDisplay(player:GetAttribute("Coins") or 0, true) end)
-	updateCoinDisplay(player:GetAttribute("Coins") or 0, false)
-end
+-- Safely path and loop to find the essential frames before setting up active listeners
+task.spawn(function()
+	local gameplayHUD = PlayerGui:WaitForChild("GameplayHUD")
+	local lobbyHUD = PlayerGui:WaitForChild("LobbyHUD")
 
-for name, menu in pairs(Menus) do
-	local gui = PlayerGui:WaitForChild(menu.Gui, 5)
-	local frame = gui and gui:FindFirstChild(menu.Frame, true)
-	if frame then REST_POSITIONS[name] = frame.Position frame.Visible = false end
-end
+	-- Explicit layout confirmation
+	local currencyDisplay = lobbyHUD:WaitForChild("CurrencyDisplay")
+	currencyDisplay:WaitForChild("CoinAmount")
 
-local bottomNav = PlayerGui:WaitForChild("LobbyHUD"):WaitForChild("BottomNav"):WaitForChild("ButtonContainer")
-local mappings = { Btn_Shop = "Shop", Btn_Inventory = "Inventory", Btn_Codes = "Promo", Btn_Quests = "Quests", Btn_Settings = "Settings" }
-for btnName, menuName in pairs(mappings) do
-	local btn = bottomNav:FindFirstChild(btnName)
-	if btn then btn.MouseButton1Click:Connect(function() if tick() - lastMenuClickTime < menuDebounceTime then return end lastMenuClickTime = tick() openMenu(menuName) end) end
-end
+	gameplayHUD.Enabled = false
+	lobbyHUD.Enabled = true
 
-local lookbookBtn = PlayerGui.LobbyHUD:FindFirstChild("DailyLookbookButton")
-if lookbookBtn then lookbookBtn.MouseButton1Click:Connect(function() if tick() - lastMenuClickTime < menuDebounceTime then return end lastMenuClickTime = tick() openMenu("Lookbook") end) end
-
-for _, menu in pairs(Menus) do
-	local gui = PlayerGui:FindFirstChild(menu.Gui)
-	local frame = gui and gui:FindFirstChild(menu.Frame, true)
-	local close = frame and frame:FindFirstChild("CloseButton", true)
-	if close then close.MouseButton1Click:Connect(closeAllMenus) end
-end
-
-_G.CloseAllMenus = closeAllMenus
-player.CharacterAdded:Connect(closeAllMenus)
-getFrame("GameplayHUD").Enabled = false
-getFrame("LobbyHUD").Enabled = true
-
-local function onPromptTriggered(prompt)
-	if prompt.Name == "CratePrompt" then
-		local crateId = prompt:GetAttribute("CrateId")
-		if crateId then
-			EconomyEvent:FireServer("CratePurchaseRequest", crateId)
-		end
+	for name, menu in pairs(Menus) do
+		local gui = PlayerGui:WaitForChild(menu.Gui, 5)
+		local frame = gui and gui:FindFirstChild(menu.Frame, true)
+		if frame then REST_POSITIONS[name] = frame.Position frame.Visible = false end
 	end
-end
 
-game:GetService("ProximityPromptService").PromptTriggered:Connect(function(prompt, pWho)
-	if pWho == player then onPromptTriggered(prompt) end
+	local bottomNav = lobbyHUD:WaitForChild("BottomNav"):WaitForChild("ButtonContainer")
+	local mappings = { Btn_Shop = "Shop", Btn_Inventory = "Inventory", Btn_Codes = "Promo", Btn_Quests = "Quests", Btn_Settings = "Settings" }
+	for btnName, menuName in pairs(mappings) do
+		local btn = bottomNav:FindFirstChild(btnName)
+		if btn then btn.MouseButton1Click:Connect(function() if tick() - lastMenuClickTime < menuDebounceTime then return end lastMenuClickTime = tick() openMenu(menuName) end) end
+	end
+
+	local lookbookBtn = lobbyHUD:FindFirstChild("DailyLookbookButton")
+	if lookbookBtn then lookbookBtn.MouseButton1Click:Connect(function() if tick() - lastMenuClickTime < menuDebounceTime then return end lastMenuClickTime = tick() openMenu("Lookbook") end) end
+
+	for _, menu in pairs(Menus) do
+		local gui = PlayerGui:FindFirstChild(menu.Gui)
+		local frame = gui and gui:FindFirstChild(menu.Frame, true)
+		local close = frame and frame:FindFirstChild("CloseButton", true)
+		if close then close.MouseButton1Click:Connect(closeAllMenus) end
+	end
+
+	_G.CloseAllMenus = closeAllMenus
+	player.CharacterAdded:Connect(closeAllMenus)
+
+	-- Kick off replication configurations
+	if not setupReplicaListener() then
+		player:GetAttributeChangedSignal("Coins"):Connect(function() updateCoinDisplay(player:GetAttribute("Coins") or 0, true) end)
+		updateCoinDisplay(player:GetAttribute("Coins") or 0, false)
+	end
+
+	-- Break any stale caches to force visual alignment with loaded server attributes
+	currentCoins = -1
+	local initialCoins = player:GetAttribute("Coins") or 0
+	updateCoinDisplay(initialCoins, false)
+
+	print("[HUD] Master Controller Initialized Successfully")
 end)
 
--- Force an initial coin sync now that LobbyHUD is guaranteed to be fully loaded and active
-task.defer(function()
-	local lobbyHUD = PlayerGui:WaitForChild("LobbyHUD", 5)
-	if lobbyHUD then
-		currentCoins = -1 -- Break the cache to force redraw
-		local actualCoins = player:GetAttribute("Coins") or 0
-		updateCoinDisplay(actualCoins, false)
-	end
-end)
-
-print("[HUD] Master Controller Initialized")
 return {}
